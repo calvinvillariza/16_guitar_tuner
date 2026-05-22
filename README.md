@@ -22,7 +22,7 @@ Download from https://www.python.org/downloads/
 
 ```bash
 # Navigate to project directory
-cd guitar-tuner-flask
+cd 16_guitar_tuner
 
 # Create virtual environment
 python -m venv venv
@@ -37,6 +37,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### WSL2
+
+# setup port forwarding
+
+netsh interface portproxy add v4tov4 listenport=5000 listenaddress=0.0.0.0 connectport=5000 connectaddress=127.0.0.1
+
 ### 3. Run the Server
 
 ```bash
@@ -44,6 +50,7 @@ python run.py
 ```
 
 You'll see:
+
 ```
  * Running on http://127.0.0.1:5000
  * To access from other devices on your network:
@@ -59,7 +66,7 @@ You'll see:
 ## Project Structure
 
 ```
-guitar-tuner-flask/
+16_guitar_tuner/
 ├── run.py                 # Entry point
 ├── requirements.txt       # Python dependencies
 ├── README.md
@@ -101,11 +108,11 @@ guitar-tuner-flask/
 ## Browser Support
 
 | Browser | iOS | Android | Desktop |
-|---------|-----|---------|---------|
-| Safari | 16+ | — | 14+ |
-| Chrome | — | 9+ | 25+ |
-| Firefox | — | 4+ | 25+ |
-| Edge | — | — | 18+ |
+| ------- | --- | ------- | ------- |
+| Safari  | 16+ | —       | 14+     |
+| Chrome  | —   | 9+      | 25+     |
+| Firefox | —   | 4+      | 25+     |
+| Edge    | —   | —       | 18+     |
 
 ## Development
 
@@ -127,15 +134,18 @@ guitar-tuner-flask/
 ## Troubleshooting
 
 **"ModuleNotFoundError: No module named 'flask'"**
+
 - Make sure virtual environment is activated
 - Run: `pip install -r requirements.txt`
 
 **iPhone can't connect**
+
 - Both devices must be on same WiFi
 - Check firewall settings
 - Verify IP address with `ipconfig` (Windows) or `ifconfig` (Mac/Linux)
 
 **Port 5000 already in use**
+
 - Edit `run.py` and change `port=5000` to `port=5001`
 
 ## License
