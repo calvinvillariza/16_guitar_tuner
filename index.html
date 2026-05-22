@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="description" content="Real-time guitar tuner using your device microphone">
+  <meta name="theme-color" content="#ffffff">
+  
+  <!-- iOS PWA Support -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Guitar Tuner">
+  
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="data:application/manifest+json,{
+    %22name%22:%20%22Guitar%20Tuner%22,
+    %22short_name%22:%20%22Tuner%22,
+    %22description%22:%20%22Real-time%20guitar%20tuner%22,
+    %22start_url%22:%20%22/%22,
+    %22display%22:%20%22standalone%22,
+    %22theme_color%22:%20%22%23378ADD%22,
+    %22background_color%22:%20%22%23ffffff%22,
+    %22icons%22:%20[
+      {
+        %22src%22:%20%22data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 192 192%27%3E%3Crect fill=%27%23378ADD%27 width=%27192%27 height=%27192%27/%3E%3Ctext x=%2796%27 y=%27120%27 font-size=%27100%27 font-weight=%27bold%27 fill=%27white%27 text-anchor=%27middle%27 font-family=%27system-ui%27%3E♪%3C/text%3E%3C/svg%3E%22,
+        %22sizes%22:%20%22192x192%22,
+        %22type%22:%20%22image/svg+xml%22,
+        %22purpose%22:%20%22any%22
+      }
+    ]
+  }">
+  
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text x='50' y='75' font-size='80' text-anchor='middle' font-family='system-ui'>♪</text></svg>">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><rect fill='%23378ADD' width='180' height='180'/><text x='90' y='135' font-size='100' font-weight='bold' fill='white' text-anchor='middle' font-family='system-ui'>♪</text></svg>">
+  
+  <title>Guitar Tuner</title>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    html, body {
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: #fff;
+      color: #1f2937;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    body {
+      display: flex;
+      flex-direction: column;
+      padding: max(1rem, env(safe-area-inset-top)) 1rem max(1rem, env(safe-area-inset-bottom));
+      padding-top: max(1.5rem, calc(env(safe-area-inset-top) + 0.5rem));
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 500px;
+      margin: 0 auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    
+    h1 {
+      font-size: 28px;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+      letter-spacing: -0.5px;
+    }
+    
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+    }
+    
+    .string-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    
+    .string-btn {
+      padding: 10px 14px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+      color: #1f2937;
+      transition: all 0.15s ease;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .string-btn:active {
+      transform: scale(0.98);
+    }
+    
+    .string-btn.active {
+      background: #378ADD;
+      color: #fff;
+      border-color: #378ADD;
+      box-shadow: 0 0 0 3px rgba(55, 138, 221, 0.1);
+    }
+    
+    .gauge-section {
+      text-align: center;
+      margin: 1rem 0 2rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+    
+    .target-freq {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 0.75rem;
+      font-weight: 500;
+    }
+    
+    .freq-display {
+      font-size: 36px;
+      font-weight: 700;
+      color: #1f2937;
+      margin-bottom: 0.5rem;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -1px;
+    }
+    
+    .status-text {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 1.5rem;
+      height: 20px;
+      transition: color 0.2s;
+    }
+    
+    .tuner-gauge {
+      position: relative;
+      width: 100%;
+      height: 120px;
+      margin: 1rem 0;
+      display: flex;
+      align-items: center;
+    }
+    
+    .gauge-track {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 6px;
+      background: #e5e7eb;
+      border-radius: 3px;
+      transform: translateY(-50%);
+    }
+    
+    .gauge-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 6px;
+      height: 60px;
+      background: #378ADD;
+      border-radius: 3px;
+      transform: translate(-50%, -50%);
+      transition: left 0.08s linear;
+      box-shadow: 0 2px 8px rgba(55, 138, 221, 0.2);
+    }
+    
+    .gauge-markers {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      pointer-events: none;
+    }
+    
+    .gauge-marker {
+      width: 2px;
+      height: 20px;
+      background: #d1d5db;
+    }
+    
+    .gauge-marker.center {
+      height: 30px;
+      background: #1f2937;
+      width: 1px;
+    }
+    
+    .tuning-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 12px;
+      padding: 0 16px;
+      font-weight: 500;
+    }
+    
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 1rem;
+      justify-content: center;
+    }
+    
+    button {
+      padding: 12px 28px;
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      color: #1f2937;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      min-width: 140px;
+    }
+    
+    button:active {
+      transform: scale(0.96);
+    }
+    
+    #startBtn {
+      background: #378ADD;
+      color: #fff;
+      border-color: #378ADD;
+    }
+    
+    #stopBtn {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+      display: none;
+    }
+    
+    .status {
+      padding: 1rem;
+      background: #f3f4f6;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      text-align: center;
+      font-size: 14px;
+      color: #374151;
+      display: none;
+    }
+    
+    .status.error {
+      background: #fef2f2;
+      color: #991b1b;
+      border-color: #fca5a5;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+      body {
+        background: #111827;
+        color: #f3f4f6;
+      }
+      
+      h1 {
+        color: #f9fafb;
+      }
+      
+      .subtitle {
+        color: #9ca3af;
+      }
+      
+      .string-btn {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f3f4f6;
+      }
+      
+      .string-btn.active {
+        background: #0ea5e9;
+        border-color: #0ea5e9;
+      }
+      
+      .target-freq {
+        color: #9ca3af;
+      }
+      
+      .freq-display {
+        color: #f9fafb;
+      }
+      
+      .status-text {
+        color: #9ca3af;
+      }
+      
+      .gauge-track {
+        background: #374151;
+      }
+      
+      .gauge-indicator {
+        background: #0ea5e9;
+        box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
+      }
+      
+      .gauge-marker {
+        background: #4b5563;
+      }
+      
+      .gauge-marker.center {
+        background: #f3f4f6;
+      }
+      
+      .tuning-labels {
+        color: #6b7280;
+      }
+      
+      button {
+        background: #1f2937;
+        border-color: #374151;
+        color: #f3f4f6;
+      }
+      
+      #startBtn {
+        background: #0ea5e9;
+        border-color: #0ea5e9;
+      }
+      
+      #stopBtn {
+        background: #dc2626;
+        border-color: #dc2626;
+      }
+      
+      .status {
+        background: #1f2937;
+        border-color: #374151;
+        color: #e5e7eb;
+      }
+      
+      .status.error {
+        background: #7c2d12;
+        color: #fecaca;
+        border-color: #f87171;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Guitar Tuner</h1>
+      <p class="subtitle">Tune your guitar by ear</p>
+    </header>
+
+    <div class="string-selector">
+      <button class="string-btn active" data-note="E" data-freq="82.41">E (6)</button>
+      <button class="string-btn" data-note="A" data-freq="110.00">A (5)</button>
+      <button class="string-btn" data-note="D" data-freq="146.83">D (4)</button>
+      <button class="string-btn" data-note="G" data-freq="196.00">G (3)</button>
+      <button class="string-btn" data-note="B" data-freq="246.94">B (2)</button>
+      <button class="string-btn" data-note="E" data-freq="329.63">E (1)</button>
+    </div>
+
+    <div class="gauge-section">
+      <div class="target-freq" id="targetLabel">Target: E – 82.4 Hz</div>
+      <div class="freq-display" id="freqDisplay">—</div>
+      <div class="status-text" id="statusText">Ready to tune</div>
+
+      <div class="tuner-gauge">
+        <div class="gauge-track"></div>
+        <div class="gauge-indicators">
+          <div class="gauge-indicator" id="indicator"></div>
+        </div>
+        <div class="gauge-markers">
+          <div class="gauge-marker"></div>
+          <div class="gauge-marker center"></div>
+          <div class="gauge-marker"></div>
+        </div>
+      </div>
+      
+      <div class="tuning-labels">
+        <span>♭ Flat</span>
+        <span>In tune</span>
+        <span>♯ Sharp</span>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn">Start listening</button>
+      <button id="stopBtn">Stop</button>
+    </div>
+
+    <div class="status" id="statusBox"></div>
+  </div>
+
+  <script>
+    // Register service worker for offline support
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE_NAME = 'guitar-tuner-v1';
+        const ASSETS = ['/', '/static/css/style.css', '/static/js/app.js'];
+        
+        self.addEventListener('install', (e) => {
+          e.waitUntil(caches.open(CACHE_NAME).then((cache) => {
+            return cache.addAll(ASSETS).catch(() => {});
+          }));
+          self.skipWaiting();
+        });
+        
+        self.addEventListener('activate', (e) => {
+          e.waitUntil(caches.keys().then((names) => {
+            return Promise.all(names.map((name) => {
+              if (name !== CACHE_NAME) return caches.delete(name);
+            }));
+          }));
+          self.clients.claim();
+        });
+        
+        self.addEventListener('fetch', (e) => {
+          if (e.request.method === 'GET') {
+            e.respondWith(caches.match(e.request).then((r) => {
+              return r || fetch(e.request).then((r) => {
+                if (r.status === 200) {
+                  caches.open(CACHE_NAME).then((c) => c.put(e.request, r.clone()));
+                }
+                return r;
+              }).catch(() => new Response('Offline'));
+            }));
+          }
+        });
+      `;
+      
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      const swUrl = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(swUrl).catch(() => {});
+    }
+
+    // ==================== Audio Tuner App ====================
+    
+    let audioContext;
+    let analyser;
+    let dataArray;
+    let animationId;
+    let isListening = false;
+    let targetFreq = 82.41;
+    let targetNote = 'E';
+    let mediaStream;
+
+    const startBtn = document.getElementById('startBtn');
+    const stopBtn = document.getElementById('stopBtn');
+    const freqDisplay = document.getElementById('freqDisplay');
+    const statusText = document.getElementById('statusText');
+    const indicator = document.getElementById('indicator');
+    const statusBox = document.getElementById('statusBox');
+    const targetLabel = document.getElementById('targetLabel');
+
+    // String button selection
+    document.querySelectorAll('.string-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.string-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        targetNote = btn.dataset.note;
+        targetFreq = parseFloat(btn.dataset.freq);
+        targetLabel.textContent = `Target: ${targetNote} – ${targetFreq.toFixed(1)} Hz`;
+      });
+    });
+
+    startBtn.addEventListener('click', startListening);
+    stopBtn.addEventListener('click', stopListening);
+
+    async function startListening() {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        
+        const source = audioContext.createMediaStreamAudioSource(mediaStream);
+        analyser = audioContext.createAnalyser();
+        analyser.fftSize = 4096;
+        source.connect(analyser);
+        
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+        isListening = true;
+        startBtn.style.display = 'none';
+        stopBtn.style.display = 'block';
+        statusBox.style.display = 'none';
+        statusText.textContent = 'Listening...';
+        
+        detectPitch();
+      } catch (err) {
+        statusBox.classList.add('error');
+        statusBox.textContent = 'Microphone access denied. Please allow microphone access.';
+        statusBox.style.display = 'block';
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      if (animationId) cancelAnimationFrame(animationId);
+      if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+      startBtn.style.display = 'block';
+      stopBtn.style.display = 'none';
+      freqDisplay.textContent = '—';
+      statusText.textContent = 'Ready to tune';
+      indicator.style.left = '50%';
+      statusBox.style.display = 'none';
+    }
+
+    function detectPitch() {
+      if (!isListening) return;
+      
+      analyser.getByteFrequencyData(dataArray);
+      
+      let maxVal = 0;
+      let maxIndex = 0;
+      for (let i = 0; i < dataArray.length; i++) {
+        if (dataArray[i] > maxVal) {
+          maxVal = dataArray[i];
+          maxIndex = i;
+        }
+      }
+      
+      if (maxVal < 30) {
+        statusText.textContent = 'No sound detected';
+        freqDisplay.textContent = '—';
+        indicator.style.left = '50%';
+      } else {
+        const nyquist = audioContext.sampleRate / 2;
+        const freqResolution = nyquist / dataArray.length;
+        const detectedFreq = maxIndex * freqResolution;
+        
+        if (detectedFreq > 20 && detectedFreq < 1000) {
+          freqDisplay.textContent = detectedFreq.toFixed(1);
+          
+          const cents = 1200 * Math.log2(detectedFreq / targetFreq);
+          const clampedCents = Math.max(-50, Math.min(50, cents));
+          const percentage = 50 + (clampedCents / 50) * 50;
+          indicator.style.left = percentage + '%';
+          
+          if (Math.abs(cents) < 5) {
+            statusText.textContent = '✓ In tune!';
+            statusText.style.color = '#10b981';
+          } else if (cents < -5) {
+            statusText.textContent = '↑ Tune up';
+            statusText.style.color = '#f59e0b';
+          } else {
+            statusText.textContent = '↓ Tune down';
+            statusText.style.color = '#f59e0b';
+          }
+        }
+      }
+      
+      animationId = requestAnimationFrame(detectPitch);
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden && isListening) {
+        stopListening();
+      }
+    });
+  </script>
+</body>
+</html>
